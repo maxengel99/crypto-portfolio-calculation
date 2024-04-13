@@ -2,13 +2,17 @@ import pandas as pd
 import requests
 import tkinter as tk
 from tkinter import filedialog
+from constants import coin_gecko_api_key
 
-'''
-1. Read CSVs
-2. Calculate total crypto amount + money spent
-3. Get current price
-'''
+api_url = 'https://api.coingecko.com/api/v3/simple/price'
 
+unit_code_to_api_id = {
+     'ETH': 'ethereum',
+     'ADA': 'cardano',
+     'BTC': 'bitcoin',
+     'SOL': 'solana',
+     'ALGO': 'algorand',
+}
 
 def main():
     root = tk.Tk()
@@ -76,12 +80,47 @@ def main():
 
     except Exception as e:
          print(f'Error processing: {e}')
-              
+    
+    unit_to_performance_info = {}
+
     for unit, info in unit_to_info.items():
+         coin_id = unit_code_to_api_id[unit]
+         params = { 'ids': coin_id, 'vs_currencies': 'USD' }
+         response = requests.get(api_url, params = params)
+         if response.status_code == 200:
+              data = response.json()
+              cur_price = data[coin_id]['usd']
+              amount = info['amount']
+              total_value = amount * cur_price
+              cost = info['cost']
+              performance = ((total_value - cost)/cost) * 100
+              unit_to_performance_info[unit] = {
+                   'amount': amount,
+                   'total_value': total_value,
+                   'performance': performance,
+                   'cost': cost
+              }
+         else:
+            print(f'Failed to retrieved data for: {unit}')
+    
+    overall_cost = 0
+    overall_value = 0
+    for unit, performance_info in unit_to_performance_info.items():
+         overall_cost += performance_info['cost']
+         overall_value += performance_info['total_value']
          print(unit)
-         print(info['cost'])
-         print(info['amount'])
-         # print(f'{unit} - {info['amount']} - ${info['balance']}')
+         amount_formatted = "{:.2f}".format(performance_info['amount'])
+         print(f"amount: {amount_formatted}")
+         total_value = "{:.2f}".format(performance_info['total_value'])
+         print(f"total value: ${total_value}")
+         performance = "{:.2f}".format(performance_info['performance'])
+         print(f"performance: {performance}%")
+    
+    overall_performance = ((overall_value - overall_cost) / overall_cost) * 100
+    overall_value_formatted = "{:.2f}".format(overall_value)
+    overall_performance_formatted = "{:.2f}".format(overall_performance)
+
+    print(f'Your total value is ${overall_value_formatted} and your overall performance is {overall_performance_formatted}%')
 
 if __name__ == "__main__":
     main()
